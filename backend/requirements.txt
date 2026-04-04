@@ -1,0 +1,15 @@
+fastapi
+uvicorn[standard]
+pydantic
+
+# Database
+supabase
+
+# HTTP requests (for APIs, scraping, etc.)
+httpx
+
+# AI (Groq)
+groq
+
+# Optional but useful
+python-dotenv
