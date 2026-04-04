@@ -1,0 +1,1 @@
+cd d:\Bureau\menacraft\backend ; d:\Bureau\menacraft\backend\.venv\Scripts\python.exe -m pip install -r requirements.txt

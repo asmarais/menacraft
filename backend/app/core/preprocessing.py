@@ -1,3 +1,8 @@
+from .preprocess_image import preprocess_image
+from .preprocess_video import preprocess_video
+from .preprocess_document import preprocess_document
+from .preprocess_url import preprocess_url
+
 class Preprocessing:
     def process(self, input_type, data):
         if input_type == "image":
@@ -10,13 +15,13 @@ class Preprocessing:
             return self._url(data)
 
     def _image(self, data):
-        return {"type": "image", "features": {}}
+        return preprocess_image(data)
 
     def _video(self, data):
-        return {"type": "video", "features": {}}
+        return preprocess_video(data)
 
     def _document(self, data):
-        return {"type": "document", "features": {}}
+        return preprocess_document(data)
 
     def _url(self, data):
-        return {"type": "url", "features": {}}
+        return preprocess_url(data)

@@ -1,15 +1,56 @@
+# ===============================
+# Core API
+# ===============================
 fastapi
 uvicorn[standard]
 pydantic
 
+# ===============================
 # Database
+# ===============================
 supabase
 
-# HTTP requests (for APIs, scraping, etc.)
+# ===============================
+# HTTP / Networking
+# ===============================
 httpx
+beautifulsoup4
+python-whois
 
-# AI (Groq)
+# ===============================
+# AI / NLP
+# ===============================
 groq
+transformers
+torch
+sentence-transformers
+spacy
+langdetect
 
-# Optional but useful
+# ===============================
+# Audio / Speech
+# ===============================
+openai-whisper
+librosa
+
+# ===============================
+# Image / Video Processing
+# ===============================
+pillow
+opencv-python
+numpy
+ImageHash
+piexif
+
+# ===============================
+# Document Processing
+# ===============================
+pdfplumber
+python-docx
+
+# ===============================
+# Utilities
+# ===============================
 python-dotenv
+scikit-learn
+yt-dlp
