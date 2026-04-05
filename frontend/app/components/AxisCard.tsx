@@ -1,6 +1,6 @@
 "use client";
 
-import { Shield, Layers, Search, Lock } from "lucide-react";
+import { Shield, Layers, Search } from "lucide-react";
 import ScoreMeter from "./ScoreMeter";
 import type { AxisResult } from "@/app/types/analysis";
 
@@ -33,18 +33,30 @@ function getScoreColor(score: number): string {
   return "#10B981";
 }
 
+function getVerdictColor(verdict: string): string {
+  const lower = verdict.toLowerCase();
+  if (["fake", "high_risk", "highly_suspicious", "misleading"].includes(lower)) return "#EF4444";
+  if (["real", "authentic", "consistent", "trustworthy", "credible"].includes(lower)) return "#10B981";
+  return "#F59E0B";
+}
+
+function getFlagDotColor(flag: string): string {
+  if (flag.startsWith("✓")) return "#10B981";
+  if (flag.startsWith("SUSPICIOUS") || flag.startsWith("CRITICAL") || flag.startsWith("WARNING")) return "#EF4444";
+  return "#818CF8"; // indigo for neutral
+}
+
 export default function AxisCard({ axis, index }: AxisCardProps) {
   const config = AXIS_CONFIG[axis.axis] ?? {
     icon: Shield,
     gradient: "from-indigo/20 to-transparent",
   };
   const Icon = config.icon;
-  const isPending = axis.verdict === "pending";
 
   return (
     <div className="group relative overflow-hidden rounded-2xl border border-border-subtle bg-bg-card p-6 transition-all hover:border-indigo/30">
       <div
-        className={`absolute inset-0 bg-gradient-to-b ${config.gradient} opacity-0 transition-opacity group-hover:opacity-100`}
+        className={`absolute inset-0 bg-linear-to-b ${config.gradient} opacity-0 transition-opacity group-hover:opacity-100`}
       />
       <div className="relative">
         <div className="mb-4 flex items-center gap-3">
@@ -56,43 +68,45 @@ export default function AxisCard({ axis, index }: AxisCardProps) {
           </h3>
         </div>
 
-        {isPending ? (
-          <div className="flex flex-col items-center py-6 text-center">
-            <Lock size={28} className="mb-2 text-text-muted" />
-            <p className="text-sm text-text-muted">Analysis pending</p>
-            <p className="mt-1 text-xs text-text-muted">
-              Available in a future update
-            </p>
-          </div>
-        ) : (
-          <>
-            <div className="flex justify-center">
-              <ScoreMeter
-                score={axis.score}
-                color={getScoreColor(axis.score)}
-                label="score"
-              />
-            </div>
-            <p
-              className="mt-3 text-center font-mono text-sm font-semibold uppercase tracking-wide"
-              style={{ color: getScoreColor(axis.score) }}
-            >
-              {axis.verdict}
-            </p>
-            {axis.flags.length > 0 && (
-              <ul className="mt-4 space-y-1.5">
-                {axis.flags.map((flag, i) => (
-                  <li
-                    key={i}
-                    className="flex items-start gap-2 text-xs text-text-secondary"
-                  >
-                    <span className="mt-1 h-1 w-1 flex-shrink-0 rounded-full bg-indigo" />
-                    {flag}
-                  </li>
-                ))}
-              </ul>
+        <div className="flex justify-center">
+          <ScoreMeter
+            score={axis.score}
+            color={getScoreColor(axis.score)}
+            label="confidence"
+          />
+        </div>
+        <p
+          className="mt-3 text-center font-mono text-sm font-semibold uppercase tracking-wide"
+          style={{ color: getVerdictColor(axis.verdict) }}
+        >
+          {axis.verdict}
+        </p>
+
+        {axis.flags && axis.flags.length > 0 && (
+          <ul className="mt-4 space-y-1.5 border-t border-border-subtle pt-4">
+            {axis.flags.slice(0, 6).map((flag, i) => (
+              <li
+                key={i}
+                className="flex items-start gap-2 text-[11px] text-text-secondary"
+              >
+                <span
+                  className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: getFlagDotColor(flag) }}
+                />
+                {flag}
+              </li>
+            ))}
+            {axis.flags.length > 6 && (
+              <li className="text-[10px] text-text-muted italic">
+                +{axis.flags.length - 6} more signals
+              </li>
             )}
-          </>
+          </ul>
+        )}
+        {axis.explanation && (
+          <p className="mt-4 border-t border-border-subtle pt-4 text-[10px] italic leading-relaxed text-text-muted">
+            {axis.explanation}
+          </p>
         )}
       </div>
     </div>

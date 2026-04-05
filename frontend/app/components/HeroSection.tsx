@@ -43,7 +43,7 @@ export default function HeroSection() {
         {/* Headline */}
         <h1 className="text-4xl font-bold tracking-tight text-text-primary md:text-6xl">
           Is it{" "}
-          <span className="animate-gradient bg-gradient-to-r from-emerald via-indigo to-emerald bg-clip-text text-transparent">
+          <span className="animate-gradient bg-linear-to-r from-emerald via-indigo to-emerald bg-clip-text text-transparent">
             real
           </span>
           ?
@@ -99,7 +99,7 @@ export default function HeroSection() {
                 file={file}
                 onClear={() => dispatch({ type: "SET_FILE", payload: null })}
               />
-              {contentType === "image" && (
+              {file && (
                 <input
                   type="text"
                   value={claimText}
@@ -109,7 +109,7 @@ export default function HeroSection() {
                       payload: e.target.value,
                     })
                   }
-                  placeholder="Optional: Describe the claim made about this image"
+                  placeholder={`Optional: What is being claimed about this ${contentType}?`}
                   className="w-full rounded-xl border border-border-subtle bg-bg-card px-4 py-3.5 text-sm text-text-primary placeholder:text-text-muted transition-colors focus:border-indigo focus:outline-none focus:ring-1 focus:ring-indigo/30"
                 />
               )}

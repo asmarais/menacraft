@@ -7,6 +7,7 @@ interface VerdictBannerProps {
   verdict: "fake" | "uncertain" | "real";
   score: number;
   explanation: string;
+  claim?: string;
 }
 
 const VERDICT_CONFIG = {
@@ -40,9 +41,18 @@ export default function VerdictBanner({
   verdict,
   score,
   explanation,
+  claim,
 }: VerdictBannerProps) {
   const config = VERDICT_CONFIG[verdict];
   const Icon = config.icon;
+
+    const confidencePercent = Math.round(
+    verdict === "real"
+      ? (1 - score) * 100
+      : verdict === "fake"
+        ? score * 100
+        : (score > 0.5 ? score : 1 - score) * 100
+  );
 
   return (
     <motion.div
@@ -52,10 +62,20 @@ export default function VerdictBanner({
       className={`rounded-2xl border ${config.border} ${config.bg} p-6 shadow-lg ${config.glow} md:p-8`}
     >
       <div className="flex flex-col items-center gap-4 text-center md:flex-row md:text-left">
-        <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-2xl bg-bg-primary/50">
+        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-bg-primary/50">
           <Icon size={32} className={config.color} />
         </div>
         <div className="flex-1">
+          {claim && (
+            <div className="mb-3">
+              <span className="font-mono text-[10px] uppercase tracking-widest text-text-muted opacity-70">
+                Analyzed Claim
+              </span>
+              <p className="mt-0.5 text-base font-semibold italic text-text-primary">
+                "{claim}"
+              </p>
+            </div>
+          )}
           <div className="flex flex-col items-center gap-2 md:flex-row">
             <span
               className={`font-mono text-2xl font-bold tracking-wider ${config.color}`}
@@ -63,7 +83,7 @@ export default function VerdictBanner({
               {config.label}
             </span>
             <span className={`font-mono text-lg font-semibold ${config.color}`}>
-              {Math.round(score * 100)}% confidence
+              {confidencePercent}% confidence
             </span>
           </div>
           <p className="mt-2 text-sm leading-relaxed text-text-secondary">

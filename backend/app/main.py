@@ -24,10 +24,11 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 async def analyze(
     type: str = Form("image"),
     file: Optional[UploadFile] = File(None),
-    url: Optional[str] = Form(None)
+    url: Optional[str] = Form(None),
+    claim_text: Optional[str] = Form(None)
 ):
-    logger.info(f"Received analysis request: type={type}, file={file.filename if file else 'None'}, url={url}")
-    return await pipeline.run(type, file=file, url=url)
+    logger.info(f"Received analysis request: type={type}, file={file.filename if file else 'None'}, url={url}, claim={claim_text}")
+    return await pipeline.run(type, file=file, url=url, claim_text=claim_text)
 
 @app.get("/")
 async def health():    

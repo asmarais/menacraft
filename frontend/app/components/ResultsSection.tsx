@@ -15,28 +15,34 @@ export default function ResultsSection() {
   if (state.status !== "results" || !state.result) return null;
 
   const { result } = state;
-  const axes = result.axes.length >= 3
-    ? result.axes
-    : [
-        result.axes[0] ?? {
-          axis: "Content Authenticity",
-          score: result.score,
-          verdict: result.verdict,
-          flags: [],
-        },
-        result.axes[1] ?? {
-          axis: "Contextual Consistency",
-          score: 0,
-          verdict: "pending",
-          flags: [],
-        },
-        result.axes[2] ?? {
-          axis: "Source Credibility",
-          score: 0,
-          verdict: "pending",
-          flags: [],
-        },
-      ];
+
+  // Build the 3 axis cards from whatever the backend sent
+  const resultAxes = result.axes || [];
+  const standardNames = ["Content Authenticity", "Contextual Consistency", "Source Credibility"];
+
+  const axesMap = new Map<string, any>();
+  resultAxes.forEach((a: any) => axesMap.set(a.axis, a));
+
+  const axes = standardNames.map(name => {
+    if (axesMap.has(name)) return axesMap.get(name);
+    // All axes now return real data — this fallback should rarely trigger
+    return {
+      axis: name,
+      score: 0.5,
+      verdict: "unknown",
+      flags: [],
+      explanation: "Analysis data not available for this content type."
+    };
+  });
+
+  // Credibility details for the Account Forensics section
+  const credAxis = axes.find((a: any) => a.axis === "Source Credibility");
+  const credDetails = credAxis?.details;
+  const hasCredDetails = credDetails && typeof credDetails === "object" && Object.keys(credDetails).length > 0;
+
+  // Consistency details for the breakdown
+  const consistAxis = axes.find((a: any) => a.axis === "Contextual Consistency");
+  const consistDetails = consistAxis?.details;
 
   return (
     <section className="px-4 pb-16">
@@ -46,11 +52,12 @@ export default function ResultsSection() {
           verdict={result.verdict}
           score={result.score}
           explanation={result.explanation}
+          claim={result.claim}
         />
 
         {/* Axis Cards */}
         <div className="grid gap-4 md:grid-cols-3">
-          {axes.map((axis, i) => (
+          {axes.map((axis: any, i: number) => (
             <motion.div
               key={axis.axis}
               initial={{ opacity: 0, y: 20 }}
@@ -63,7 +70,7 @@ export default function ResultsSection() {
         </div>
 
         {/* Signal Breakdown */}
-        {result.details?.component_scores?.length > 0 && (
+        {(result.details?.component_scores?.length > 0 || hasCredDetails || consistDetails) && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -86,20 +93,22 @@ export default function ResultsSection() {
             {signalsOpen && (
               <div className="space-y-5 border-t border-border-subtle px-5 pt-5 pb-6">
                 {/* Signal bars */}
-                <div className="space-y-4">
-                  {result.details.component_scores.map((cs) => (
-                    <SignalBar
-                      key={cs.name}
-                      name={cs.name}
-                      score={cs.score}
-                      verdict={cs.verdict}
-                    />
-                  ))}
-                </div>
+                {result.details?.component_scores?.length > 0 && (
+                  <div className="space-y-4">
+                    {result.details.component_scores.map((cs: any) => (
+                      <SignalBar
+                        key={cs.name}
+                        name={cs.name}
+                        score={cs.score}
+                        verdict={cs.verdict}
+                      />
+                    ))}
+                  </div>
+                )}
 
                 {/* ELA image */}
                 {result.type === "image" &&
-                  result.details.ela_image_b64 &&
+                  result.details?.ela_image_b64 &&
                   result.score > 0.45 && (
                     <div className="mt-4">
                       <p className="mb-2 font-mono text-xs uppercase tracking-wider text-text-muted">
@@ -116,7 +125,7 @@ export default function ResultsSection() {
                   )}
 
                 {/* API raw sources */}
-                {result.details.api_raw?.length > 0 && (
+                {result.details?.api_raw?.length > 0 && (
                   <div className="mt-4">
                     <p className="mb-2 font-mono text-xs uppercase tracking-wider text-text-muted">
                       API Sources
@@ -137,7 +146,7 @@ export default function ResultsSection() {
                           </tr>
                         </thead>
                         <tbody>
-                          {result.details.api_raw.map((src) => (
+                          {result.details?.api_raw?.map((src: any) => (
                             <tr
                               key={src.source}
                               className="border-b border-border-subtle last:border-0"
@@ -165,6 +174,54 @@ export default function ResultsSection() {
                           ))}
                         </tbody>
                       </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Account Forensics */}
+                {hasCredDetails && (
+                  <div className="mt-6 border-t border-border-subtle pt-6">
+                    <p className="mb-3 font-mono text-xs uppercase tracking-wider text-text-muted">
+                      Source Forensics
+                    </p>
+                    <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                      {Object.entries(credDetails).map(([key, value]: [string, any]) => {
+                        if (key === "bio" || key === "source") return null;
+                        const label = key.replace(/_/g, " ").replace("exact ", "").replace(" days", "");
+                        let displayValue = typeof value === "number" ? value.toLocaleString() : String(value);
+                        if (key === "verified") displayValue = value ? "Verified" : "Standard";
+                        if (key === "account_age_days") displayValue = `${value} days`;
+
+                        return (
+                          <div key={key} className="rounded-xl border border-border-subtle bg-bg-elevated p-3">
+                            <p className="font-mono text-[9px] uppercase tracking-wider text-text-muted">{label}</p>
+                            <p className="mt-1 font-semibold text-text-primary capitalize truncate">{displayValue}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Consistency Breakdown */}
+                {consistDetails && typeof consistDetails === "object" && Object.keys(consistDetails).length > 0 && (
+                  <div className="mt-6 border-t border-border-subtle pt-6">
+                    <p className="mb-3 font-mono text-xs uppercase tracking-wider text-text-muted">
+                      Consistency Analysis
+                    </p>
+                    <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+                      {Object.entries(consistDetails).map(([key, value]: [string, any]) => {
+                        if (typeof value === "object") return null;
+                        const label = key.replace(/_/g, " ");
+                        return (
+                          <div key={key} className="rounded-xl border border-border-subtle bg-bg-elevated p-3">
+                            <p className="font-mono text-[9px] uppercase tracking-wider text-text-muted">{label}</p>
+                            <p className="mt-1 text-sm font-semibold text-text-primary capitalize truncate">
+                              {typeof value === "number" ? `${Math.round(value * 100)}%` : String(value)}
+                            </p>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}

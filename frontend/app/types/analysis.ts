@@ -13,6 +13,8 @@ export interface AxisResult {
   score: number;
   verdict: string;
   flags: string[];
+  explanation?: string;
+  details?: any;
 }
 
 export interface AnalysisDetails {
@@ -25,8 +27,9 @@ export interface AnalysisResult {
   verdict: "fake" | "uncertain" | "real";
   score: number;
   explanation: string;
+  claim?: string;
   axes: AxisResult[];
-  details: AnalysisDetails;
+  details: any;
   type: ContentType;
 }
 

@@ -1,5 +1,5 @@
 # ==============================================================================
-# MenaCraft Backend — Core Dependencies
+# MenaCraft Backend — Complete Dependencies
 # ==============================================================================
 
 # Core API
@@ -13,18 +13,20 @@ python-dotenv
 supabase
 httpx
 
-# Network & OS
+# Network & Scraping
 requests
 beautifulsoup4
 python-whois
 validators
+google-search-results
+tldextract
 
 # AI & NLP Forensics
 groq
 transformers
 torch
+torchvision
 realitydefender
-scipy
 sentence-transformers
 scikit-learn
 langdetect
@@ -39,11 +41,15 @@ piexif
 
 # Video Forensics
 yt-dlp
+av
 
 # Document Forensics
 pypdfium2
 python-docx
 
-# Audio Forensics (Planned)
-openai-whisper
-librosa
+# Config & Serialization
+pyyaml
+
+# Training (optional — only needed for model training)
+# tqdm
+# wandb
