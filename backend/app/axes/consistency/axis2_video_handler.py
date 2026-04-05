@@ -18,15 +18,22 @@ import numpy as np
 from PIL import Image
 from sentence_transformers import util
 
+import logging
+
+logger = logging.getLogger("VideoHandler")
+
 try:
     from .axis2_contextual_consistency import check_claim_consistency_nli, _extract_year
-except ImportError:
-    from .axis2_contextual_consistency import check_claim_consistency_nli, _extract_year
+except ImportError as e:
+    logger.error(f"Failed to import from axis2_contextual_consistency: {e}")
+    # Fallback if needed or let it fail
+    raise
 
 try:
     from .sentence_model_singleton import get_sentence_model
-except ImportError:
-    from .sentence_model_singleton import get_sentence_model
+except ImportError as e:
+    logger.error(f"Failed to import from sentence_model_singleton: {e}")
+    raise
 
 
 @dataclass
@@ -71,7 +78,9 @@ def _load_whisper(model_size: str = "base"):
 
 
 def extract_audio_from_video(video_path: str) -> str:
+    logger.info(f"Extracting audio from {video_path}")
     tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+    tmp_name = tmp.name
     tmp.close()
 
     cmd = [
@@ -80,12 +89,18 @@ def extract_audio_from_video(video_path: str) -> str:
         "-ar", "16000",
         "-ac", "1",
         "-vn",
-        tmp.name,
+        tmp_name,
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        raise RuntimeError(f"ffmpeg audio extraction failed: {result.stderr[:300]}")
-    return tmp.name
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            logger.error(f"ffmpeg audio extraction failed: {result.stderr[:300]}")
+            raise RuntimeError(f"ffmpeg audio extraction failed: {result.stderr[:300]}")
+        logger.info(f"Successfully extracted audio to {tmp_name}")
+        return tmp_name
+    except FileNotFoundError:
+        logger.error("ffmpeg command not found. Please install ffmpeg and add it to your PATH.")
+        raise RuntimeError("ffmpeg command not found. Audio extraction required for transcription.")
 
 
 def transcribe_video(
@@ -839,6 +854,7 @@ def analyze_video_context(
     max_frames: int = 10,
     run_frame_analysis: bool = True,
 ) -> dict:
+    logger.info("Resolving transcript...")
     full_text, segments, transcript_source = resolve_transcript(
         video_path=video_path,
         transcript_text=transcript_text,
@@ -846,12 +862,21 @@ def analyze_video_context(
         whisper_model_size=whisper_model_size,
         language=language,
     )
+    logger.info(f"Transcript resolved via: {transcript_source}. Length: {len(full_text)}")
 
+    logger.info("Running NLI claim consistency check...")
     nli_result = check_claim_consistency_nli(claim_text, full_text)
+    
+    logger.info("Running temporal consistency check...")
     temporal_result = check_transcript_temporal_consistency(segments)
+    
+    logger.info("Computing claim alignment...")
     claim_alignment = _compute_claim_alignment(claim_text=claim_text, transcript_text=full_text)
 
+    logger.info("Detecting segment anomalies...")
     segment_anomalies = detect_segment_anomalies(claim_text=claim_text, segments=segments)
+    
+    logger.info("Detecting semantic drift...")
     drift_events = detect_semantic_drift(segments=segments)
     timeline_issues = sorted(segment_anomalies + drift_events, key=lambda item: float(item.get("start_sec", 0.0)))
 

@@ -41,8 +41,9 @@ Usage::
     print(result["timeline_issues"])  # video only, with start_fmt/end_fmt
 """
 
-import asyncio
-from typing import Any
+import logging
+
+logger = logging.getLogger("Consistency")
 
 axis2_contextual_consistency = None
 check_image_caption_clip = None
@@ -55,11 +56,7 @@ HF_TOKEN = "your_hf_token"
 _CTX_IMPORT_ERROR: Exception | None = None
 
 
-def _fallback_has_real_token(token_value: str, placeholder: str) -> bool:
-    return bool(token_value and token_value.strip() and token_value.strip() != placeholder)
-
-
-_has_real_token = _fallback_has_real_token
+_has_real_token = lambda token_value, placeholder: bool(token_value and token_value.strip() and token_value.strip() != placeholder)
 
 try:
     from . import axis2_contextual_consistency as axis2_contextual_consistency
@@ -73,15 +70,17 @@ try:
         compare_captions,
         generate_caption_blip,
     )
+    logger.info("Successfully imported contextual consistency modules.")
 except ImportError as exc:
     _CTX_IMPORT_ERROR = exc
+    logger.error(f"Failed to import contextual consistency modules: {exc}")
 
 analyze_axis2_from_url = None
 analyze_axis2_from_raw_inputs = None
 analyze_context_document = None
 _compute_multimodal_penalty = None
-Axis2FusionResult = Any
-Axis2DocumentResult = Any
+Axis2FusionResult = any
+Axis2DocumentResult = any
 _DOC_IMPORT_ERROR: Exception | None = None
 
 try:
@@ -93,27 +92,33 @@ try:
         analyze_axis2_from_url,
         analyze_context_document,
     )
+    logger.info("Successfully imported document handler modules.")
 except ImportError as exc:
-    _CTX_IMPORT_ERROR = exc
+    _DOC_IMPORT_ERROR = exc
+    logger.error(f"Failed to import document handler modules: {exc}")
 
 analyze_video_context = None
 _VIDEO_IMPORT_ERROR: Exception | None = None
 
 try:
     from .axis2_video_handler import analyze_video_context
+    logger.info("Successfully imported video context handler.")
 except ImportError as exc:
     _VIDEO_IMPORT_ERROR = exc
+    logger.error(f"Failed to import video context handler: {exc}")
 
 DocumentBurstinessAnalyzer = None
 try:
     from .burstiness_analyzer import DocumentBurstinessAnalyzer
-except ImportError:
+except ImportError as exc:
+    logger.warning(f"Burstiness analyzer unavailable: {exc}")
     DocumentBurstinessAnalyzer = None
 
 GoogleFactCheckClient = None
 try:
     from .fact_check_client import GoogleFactCheckClient
-except ImportError:
+except ImportError as exc:
+    logger.warning(f"Google Fact Check client unavailable: {exc}")
     GoogleFactCheckClient = None
 
 
@@ -125,10 +130,12 @@ class Consistency:
         hf_token: str | None = None,
         whisper_model_size: str = "base",
     ):
+        logger.info(f"Initializing Consistency with hf_token provided: {bool(hf_token)}")
         if burstiness_analyzer is None and DocumentBurstinessAnalyzer is not None:
             try:
                 burstiness_analyzer = DocumentBurstinessAnalyzer()
-            except Exception:
+            except Exception as e:
+                logger.warning(f"Error initializing DocumentBurstinessAnalyzer: {e}")
                 burstiness_analyzer = None
 
         self.burstiness_analyzer = burstiness_analyzer
@@ -139,10 +146,13 @@ class Consistency:
         if hf_token and axis2_contextual_consistency is not None:
             try:
                 axis2_contextual_consistency.HF_TOKEN = hf_token
-            except Exception:
+            except Exception as e:
+                logger.error(f"Error setting HF_TOKEN in axis2_contextual_consistency: {e}")
                 pass
 
     def evaluate(self, features: dict[str, Any]) -> dict[str, Any]:
+        input_type = features.get("type", "unknown")
+        logger.info(f"Evaluating consistency for type: {input_type}")
         handlers = {
             "image": self._image,
             "video": self._video,
@@ -150,10 +160,17 @@ class Consistency:
             "url": self._url,
         }
         try:
-            handler = handlers.get(features["type"])
-        except Exception:
+            handler = handlers.get(input_type)
+            if not handler:
+                logger.warning(f"No consistency handler found for type: {input_type}")
+                return self._default()
+            
+            result = handler(features)
+            logger.info(f"Consistency evaluation complete for {input_type}. Score: {result.get('score')}")
+            return result
+        except Exception as e:
+            logger.error(f"Unexpected error in Consistency.evaluate: {e}", exc_info=True)
             return self._default()
-        return handler(features) if handler else self._default()
 
     def _url(self, f: dict[str, Any]) -> dict[str, Any]:
         """Treat URLs as documents — analyze article text for consistency."""
@@ -255,7 +272,7 @@ class Consistency:
 
         return self._result(
             score, label, explanation, flags,
-            breakdown={"nli": nli_result, "fake_news": fake_result},
+            details={"nli": nli_result, "fake_news": fake_result},
         )
 
     def _image(self, f: dict[str, Any]) -> dict[str, Any]:
@@ -379,37 +396,46 @@ class Consistency:
             label,
             explanation,
             all_flags,
-            breakdown=multimodal_results,
+            details=multimodal_results,
             timeline_issues=[],
         )
 
     def _video(self, f: dict[str, Any]) -> dict[str, Any]:
+        logger.info("Starting video consistency analysis.")
         if analyze_video_context is None:
+            err_msg = str(_VIDEO_IMPORT_ERROR or "video analyzer unavailable")
+            logger.error(f"Video analysis dependencies missing: {err_msg}")
             return self._result(
                 score=0.5,
                 label=self._label(0.5),
                 explanation="Video analysis dependencies are unavailable.",
                 flags=["video_error"],
-                breakdown={"error": str(_VIDEO_IMPORT_ERROR or "video analyzer unavailable")},
+                details={"error": err_msg},
                 timeline_issues=[],
             )
 
         try:
+            video_path = f.get("video_path")
+            claim_text = f.get("claim_text", "")
+            logger.info(f"Calling analyze_video_context. Video path: {video_path}")
+            
             raw = analyze_video_context(
-                claim_text=f["claim_text"],
-                video_path=f.get("video_path"),
+                claim_text=claim_text,
+                video_path=video_path,
                 transcript_text=f.get("transcript_text"),
                 transcript_segments=f.get("transcript_segments"),
                 whisper_model_size=self.whisper_model_size,
                 language=f.get("language"),
             )
+            logger.info("analyze_video_context returned successfully.")
         except Exception as exc:
+            logger.error(f"Video analysis failed with exception: {exc}", exc_info=True)
             return self._result(
                 score=0.5,
                 label=self._label(0.5),
                 explanation=f"Video analysis failed: {exc}",
                 flags=["video_error"],
-                breakdown={"error": str(exc)},
+                details={"error": str(exc)},
                 timeline_issues=[],
             )
 
@@ -434,7 +460,7 @@ class Consistency:
             label,
             explanation,
             flags,
-            breakdown=breakdown,
+            details=breakdown,
             timeline_issues=timeline_issues,
         )
 
@@ -477,7 +503,7 @@ class Consistency:
                 label=self._label(0.5),
                 explanation=f"Document analysis failed: {exc}",
                 flags=["document_error"],
-                breakdown={"source": source, "error": str(exc)},
+                details={"source": source, "error": str(exc)},
                 timeline_issues=[],
             )
 
@@ -488,7 +514,7 @@ class Consistency:
             label=self._label(score),
             explanation=r.short_explanation,
             flags=r.flags,
-            breakdown={
+            details={
                 "document": vars(r.document_result) if r.document_result else {},
                 "multimodal": r.multimodal_results,
                 "penalty": r.multimodal_penalty,
@@ -504,7 +530,7 @@ class Consistency:
             label=self._label(score),
             explanation=expl or r.label,
             flags=r.flags,
-            breakdown=r.breakdown,
+            details=r.breakdown,
             timeline_issues=[],
         )
 
@@ -529,7 +555,7 @@ class Consistency:
         label: str,
         explanation: str,
         flags: list[str] | None = None,
-        breakdown: dict[str, Any] | None = None,
+        details: dict[str, Any] | None = None,
         timeline_issues: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         return {
@@ -537,7 +563,7 @@ class Consistency:
             "label": label,
             "explanation": explanation,
             "flags": flags or [],
-            "breakdown": breakdown or {},
+            "details": details or {},
             "timeline_issues": timeline_issues or [],
         }
 

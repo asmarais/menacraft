@@ -11,7 +11,7 @@ from typing import Optional
 from fastapi import UploadFile
 from app.axes.authenticity import Authenticity
 from app.axes.credibility import Credibility
-from app.axes.consistency import Consistency
+from app.axes.consistency.consistency import Consistency
 
 logger = logging.getLogger("Pipeline")
 
@@ -99,8 +99,12 @@ class Pipeline:
                 logger.error(f"Credibility evaluation failed: {cred_result}")
                 cred_result = {"score": 0.5, "label": "unknown", "explanation": str(cred_result), "flags": []}
             if isinstance(consistency_result, Exception):
-                logger.error(f"Consistency evaluation failed: {consistency_result}")
-                consistency_result = {"score": 0.5, "label": "unknown", "explanation": str(consistency_result), "flags": []}
+                logger.error(f"Consistency evaluation failed: {consistency_result}", exc_info=True)
+                consistency_result = {"score": 0.5, "label": "unknown", "explanation": str(consistency_result), "flags": ["consistency_exception"]}
+            else:
+                logger.info(f"Consistency evaluation finished. Label: {consistency_result.get('label')}, Flags: {consistency_result.get('flags')}")
+                if "video_error" in consistency_result.get("flags", []):
+                    logger.warning(f"Video analysis returned 'video_error'. Check Consistency/VideoHandler logs for details.")
 
             # --- TRANSFORMATION FOR FRONTEND ---
             # 1. Transform component_scores (dict -> array)
