@@ -1,56 +1,49 @@
-# ===============================
+# ==============================================================================
+# MenaCraft Backend — Core Dependencies
+# ==============================================================================
+
 # Core API
-# ===============================
 fastapi
 uvicorn[standard]
 pydantic
+python-multipart
+python-dotenv
 
-# ===============================
-# Database
-# ===============================
+# Database & Storage
 supabase
-
-# ===============================
-# HTTP / Networking
-# ===============================
 httpx
+
+# Network & OS
+requests
 beautifulsoup4
 python-whois
+validators
 
-# ===============================
-# AI / NLP
-# ===============================
+# AI & NLP Forensics
 groq
 transformers
 torch
+realitydefender
+scipy
 sentence-transformers
-spacy
+scikit-learn
 langdetect
+spacy
 
-# ===============================
-# Audio / Speech
-# ===============================
-openai-whisper
-librosa
-
-# ===============================
-# Image / Video Processing
-# ===============================
+# Image Forensics
 pillow
 opencv-python
 numpy
 ImageHash
 piexif
 
-# ===============================
-# Document Processing
-# ===============================
-pdfplumber
+# Video Forensics
+yt-dlp
+
+# Document Forensics
+pypdfium2
 python-docx
 
-# ===============================
-# Utilities
-# ===============================
-python-dotenv
-scikit-learn
-yt-dlp
+# Audio Forensics (Planned)
+openai-whisper
+librosa
